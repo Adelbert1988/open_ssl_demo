@@ -22,15 +22,13 @@ public:
      */
     static jstring encryptByMD5(JNIEnv *env, jstring content);
 
-    static jstring encryptByAES(JNIEnv *env, jstring aesSecret, jstring content);
+    static std::string encryptByAES(const std::string &aesSecret, const std::string &content);
 
-    static jbyteArray encryptDataByAES(JNIEnv *env, jbyteArray aesSecret, jbyteArray content);
-
-    static jstring decryptByAES(JNIEnv *env, jstring aesSecret, jstring content);
+    static std::string decryptByAES(const std::string &aesSecret, const std::string &cipherContent);
 
     static std::string encryptByRSA(const std::string &publicKey, const std::string &content);
 
-    static std::string decryptByRSA(const std::string &privateKey, const std::string &content);
+    static std::string decryptByRSA(const std::string &privateKey, const std::string &cipherContent);
 
     static std::string encodeBase64(const std::string &decoded_bytes);
 

@@ -22,14 +22,10 @@ jstring EncryptHelper::encryptByMD5(JNIEnv *env, jstring content)
     return env->NewStringUTF(buf);
 }
 
-jstring EncryptHelper::encryptByAES(JNIEnv *env, jstring aesSecret, jstring content)
+std::string EncryptHelper::encryptByAES(const std::string &aesSecret, const std::string &content)
 {
     const unsigned char *iv = (const unsigned char *) "0123456789012345";
-    jbyteArray contentArray = JNIHelper::jstringTojbyteArray(env, content);
-    jbyteArray aesSecretArray = JNIHelper::jstringTojbyteArray(env, aesSecret);
-    jbyte *encryptKeys = env->GetByteArrayElements(aesSecretArray, NULL);
-    jbyte *encryptData = env->GetByteArrayElements(contentArray, NULL);
-    jsize src_Len = env->GetArrayLength(contentArray);
+    jsize src_Len = content.size();
 
     int outlen = 0, cipherText_len = 0;
 
@@ -40,9 +36,9 @@ jstring EncryptHelper::encryptByAES(JNIEnv *env, jstring aesSecret, jstring cont
     EVP_CIPHER_CTX ctx;
     EVP_CIPHER_CTX_init(&ctx);
     //指定加密算法，初始化加密key/iv
-    EVP_EncryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, (const unsigned char *) encryptKeys, iv);
+    EVP_EncryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, (const unsigned char *) aesSecret.c_str(), iv);
     //对数据进行加密运算
-    EVP_EncryptUpdate(&ctx, out, &outlen, (const unsigned char *) encryptData, src_Len);
+    EVP_EncryptUpdate(&ctx, out, &outlen, (const unsigned char *) content.c_str(), src_Len);
     cipherText_len = outlen;
 
     //结束加密运算
@@ -51,71 +47,16 @@ jstring EncryptHelper::encryptByAES(JNIEnv *env, jstring aesSecret, jstring cont
 
     EVP_CIPHER_CTX_cleanup(&ctx);
 
-    env->ReleaseByteArrayElements(aesSecretArray, encryptKeys, 0);
-    env->ReleaseByteArrayElements(contentArray, encryptData, 0);
-
-    jbyteArray cipher = env->NewByteArray(cipherText_len);
-    env->SetByteArrayRegion(cipher, 0, cipherText_len, (jbyte *) out);
+    static std::string result((char *) out, cipherText_len);
     free(out);
 
-    jclass strClass = env->FindClass("java/lang/String");
-    jmethodID methodId = (env)->GetMethodID(strClass, "<init>", "([BLjava/lang/String;)V");
-    jstring encoding = env->NewStringUTF("utf-8");
-    jstring contentAES = (jstring)env->NewObject(strClass, methodId, cipher, encoding);
-    return contentAES;
+    return result;
 }
 
-jbyteArray EncryptHelper::encryptDataByAES(JNIEnv *env, jbyteArray aesSecret, jbyteArray content)
+std::string EncryptHelper::decryptByAES(const std::string &aesSecret, const std::string &cipherContent)
 {
-    LOGI("AES->对称密钥，也就是说加密和解密用的是同一个密钥");
     const unsigned char *iv = (const unsigned char *) "0123456789012345";
-    jbyte *keys = env->GetByteArrayElements(aesSecret, NULL);
-    jbyte *src = env->GetByteArrayElements(content, NULL);
-    jsize src_Len = env->GetArrayLength(content);
-
-    int outlen = 0, cipherText_len = 0;
-
-    unsigned char *out = (unsigned char *) malloc((src_Len / 16 + 1) * 16);
-    //清空内存空间
-    memset(out, 0, (src_Len / 16 + 1) * 16);
-
-    EVP_CIPHER_CTX ctx;
-    EVP_CIPHER_CTX_init(&ctx);
-    LOGI("AES->指定加密算法，初始化加密key/iv");
-    EVP_EncryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, (const unsigned char *) keys, iv);
-    LOGI("AES->对数据进行加密运算");
-    EVP_EncryptUpdate(&ctx, out, &outlen, (const unsigned char *) src, src_Len);
-    cipherText_len = outlen;
-
-    LOGI("AES->结束加密运算");
-    EVP_EncryptFinal_ex(&ctx, out + outlen, &outlen);
-    cipherText_len += outlen;
-
-    LOGI("AES->EVP_CIPHER_CTX_cleanup");
-    EVP_CIPHER_CTX_cleanup(&ctx);
-
-    LOGI("AES->从jni释放数据指针");
-    env->ReleaseByteArrayElements(aesSecret, keys, 0);
-    env->ReleaseByteArrayElements(content, src, 0);
-
-    jbyteArray cipher = env->NewByteArray(cipherText_len);
-    LOGI("AES->在堆中分配ByteArray数组对象成功，将拷贝数据到数组中");
-    env->SetByteArrayRegion(cipher, 0, cipherText_len, (jbyte *) out);
-    LOGI("AES->释放内存");
-    free(out);
-
-    return cipher;
-}
-
-jstring EncryptHelper::decryptByAES(JNIEnv *env, jstring aesSecret, jstring content)
-{
-    jbyteArray contentArray = JNIHelper::jstringTojbyteArray(env, content);
-    jbyteArray aesSecretArray = JNIHelper::jstringTojbyteArray(env, aesSecret);
-
-    const unsigned char *iv = (const unsigned char *) "0123456789012345";
-    jbyte *encryptKey = env->GetByteArrayElements(aesSecretArray, NULL);
-    jbyte *encryptData = env->GetByteArrayElements(contentArray, NULL);
-    jsize src_Len = env->GetArrayLength(contentArray);
+    jsize src_Len = cipherContent.size();
 
     int outlen = 0, plaintext_len = 0;
 
@@ -125,9 +66,9 @@ jstring EncryptHelper::decryptByAES(JNIEnv *env, jstring aesSecret, jstring cont
     EVP_CIPHER_CTX ctx;
     EVP_CIPHER_CTX_init(&ctx);
     //指定解密算法，初始化解密key/iv
-    EVP_DecryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, (const unsigned char *) encryptKey, iv);
+    EVP_DecryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, (const unsigned char *) aesSecret.c_str(), iv);
     //对数据进行解密运算
-    EVP_DecryptUpdate(&ctx, out, &outlen, (const unsigned char *) encryptData, src_Len);
+    EVP_DecryptUpdate(&ctx, out, &outlen, (const unsigned char *) cipherContent.c_str(), src_Len);
     plaintext_len = outlen;
 
     //结束解密运算
@@ -136,19 +77,10 @@ jstring EncryptHelper::decryptByAES(JNIEnv *env, jstring aesSecret, jstring cont
 
     EVP_CIPHER_CTX_cleanup(&ctx);
 
-    env->ReleaseByteArrayElements(aesSecretArray, encryptKey, 0);
-    env->ReleaseByteArrayElements(contentArray, encryptData, 0);
-
-    jbyteArray cipher = env->NewByteArray(plaintext_len);
-    env->SetByteArrayRegion(cipher, 0, plaintext_len, (jbyte *) out);
+    static std::string result((char *) out, plaintext_len);
     free(out);
-
-    jclass strClass = env->FindClass("java/lang/String");
-    jmethodID methodId = (env)->GetMethodID(strClass, "<init>", "([BLjava/lang/String;)V");
-    jstring encoding = env->NewStringUTF("utf-8");
-    return (jstring)env->NewObject(strClass, methodId, cipher, encoding);
+    return result;
 }
-
 
 std::string EncryptHelper::encryptByRSA(const std::string &publicKey, const std::string &content) {
     BIO *bio = NULL;
@@ -205,7 +137,7 @@ std::string EncryptHelper::encryptByRSA(const std::string &publicKey, const std:
 }
 
 
-std::string EncryptHelper::decryptByRSA(const std::string &privateKey, const std::string &content) {
+std::string EncryptHelper::decryptByRSA(const std::string &privateKey, const std::string &cipherContent) {
     BIO *bio = NULL;
     RSA *rsa_private_key = NULL;
     //从字符串读取RSA公钥串
@@ -230,11 +162,11 @@ std::string EncryptHelper::decryptByRSA(const std::string &privateKey, const std
     //填充0
     memset(to, 0, rsa_size + 1);
     //密文长度
-    int flen = content.length();
+    int flen = cipherContent.length();
     // RSA_NO_PADDING
     // RSA_PKCS1_PADDING
     //解密，返回值为解密后的名文长度，-1表示失败
-    int status = RSA_private_decrypt(flen, (const unsigned char *) content.c_str(), to, rsa_private_key,
+    int status = RSA_private_decrypt(flen, (const unsigned char *) cipherContent.c_str(), to, rsa_private_key,
                                      RSA_PKCS1_PADDING);
     //异常处理率
     if (status < 0) {

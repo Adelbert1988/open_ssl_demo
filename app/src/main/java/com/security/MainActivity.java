@@ -44,7 +44,7 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         String md5Signature = OpenSslUtil.getMD5Content(getSignature());
-        Log.i(TAG, "md5 加密: " + md5Signature);
+        //Log.i(TAG, "md5 加密: " + md5Signature);
 
         String content = "thisismaintabactivty打发撒发生 adasdfasdfadfasdfasdgqwerqwerqwerqwer";
         //String encode64Content = Base64.encodeToString(content.getBytes(), Base64.NO_WRAP);
@@ -57,11 +57,11 @@ public class MainActivity extends Activity {
         //byte[] decode64Content = Base64.decode(decodeAesContent, Base64.NO_WRAP);
         Log.i(TAG, "aes 解密: " + new String(decodeAesContent));
 
-        String rsaContent = OpenSslUtil.encryptByRSA(TEST_PUBLIC_KEY, content);
-        Log.i(TAG, "rsa 加密: " + rsaContent);
-        ((TextView)findViewById(R.id.tv_rsa)).setText("RSA: " + rsaContent);
-        String rsaDecrypt = OpenSslUtil.decryptByRSA(TEST_PRIVATE_KEY, rsaContent);
-        Log.i(TAG, "rsa 解密: " + rsaDecrypt);
+        //String rsaContent = OpenSslUtil.encryptByRSA(TEST_PUBLIC_KEY, content);
+        //Log.i(TAG, "rsa 加密: " + rsaContent);
+        //((TextView)findViewById(R.id.tv_rsa)).setText("RSA: " + rsaContent);
+        //String rsaDecrypt = OpenSslUtil.decryptByRSA(TEST_PRIVATE_KEY, rsaContent);
+        //Log.i(TAG, "rsa 解密: " + rsaDecrypt);
 
         //String aesContent2 = new String(OpenSslUtil.encryptDataAES(AES_KEY.getBytes(), content.getBytes()));
         //Log.i(TAG, "aes encrypt byte[] Content: " + aesContent2);

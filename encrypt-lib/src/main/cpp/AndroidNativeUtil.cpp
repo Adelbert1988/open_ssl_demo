@@ -16,37 +16,71 @@ extern "C" {
 #endif
 
 
-JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_getMD5Content(JNIEnv *env, jobject thiz, jstring srcjStr) {
+JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_getMD5Content(JNIEnv *env, jobject thiz
+        , jstring srcjStr) {
     return EncryptHelper::encryptByMD5(env, srcjStr);
 }
 
-JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_encryptByAES(JNIEnv *env, jobject thiz, jstring secret, jstring srcjStr) {
-    return EncryptHelper::encryptByAES(env, secret, srcjStr);
-}
+JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_encryptByAES(JNIEnv *env, jobject thiz
+        , jstring secret, jstring content) {
+    char *secretKeyChars = (char *) env->GetStringUTFChars(secret, NULL);
+    string secretKeyString = string(secretKeyChars);
+    env->ReleaseStringUTFChars(secret, secretKeyChars);
 
-JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_decryptByAES(JNIEnv *env, jobject thiz, jstring secret, jstring srcjStr) {
-    return EncryptHelper::decryptByAES(env, secret, srcjStr);
-}
-
-JNIEXPORT jbyteArray JNICALL Java_com_security_openssl_OpenSslUtil_encryptDataAES(JNIEnv *env, jobject thiz, jbyteArray secret, jbyteArray srcjStr) {
-    return EncryptHelper::encryptDataByAES(env, secret, srcjStr);
-}
-
-JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_encryptByRSA(JNIEnv *env, jobject thiz, jstring publicKey, jstring content) {
-    //jstring 转 char*
-    char *base64PublicKeyChars = (char *) env->GetStringUTFChars(publicKey, NULL);
-    //char* 转 string
-    string base64PublicKeyString = string(base64PublicKeyChars);
-    //释放
-    env->ReleaseStringUTFChars(publicKey, base64PublicKeyChars);
-    //jstring 转 char*
     char *contentChars = (char *) env->GetStringUTFChars(content, NULL);
-    //char* 转 string
     string contentString = string(contentChars);
-    //释放
     env->ReleaseStringUTFChars(content, contentChars);
-    //调用RSA加密函数加密
-    string rsaResult = EncryptHelper::encryptByRSA(base64PublicKeyString, contentString);
+
+    string aesContent = EncryptHelper::encryptByAES(secretKeyChars, contentString);
+    //LOGI("aesContent: %s", aesContent.c_str());
+    if (aesContent.empty()) {
+        return NULL;
+    }
+    //将密文进行base64
+    string base64RSA = EncryptHelper::encodeBase64(aesContent);
+    if (base64RSA.empty()) {
+        return NULL;
+    }
+
+    jstring result = env->NewStringUTF(base64RSA.c_str());
+    return result;
+}
+
+JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_decryptByAES(JNIEnv *env, jobject thiz
+        , jstring secret, jstring cipherContent) {
+
+    char *secretKeyChars = (char *) env->GetStringUTFChars(secret, NULL);
+    string secretKeyString = string(secretKeyChars);
+    env->ReleaseStringUTFChars(secret, secretKeyChars);
+
+    char *contentChars = (char *) env->GetStringUTFChars(cipherContent, NULL);
+    string cipherContentString = string(contentChars);
+    env->ReleaseStringUTFChars(cipherContent, contentChars);
+
+    string decodeBase64AES = EncryptHelper::decodeBase64(cipherContentString);
+    //LOGI("decodeBase64AES: %s", decodeBase64AES.c_str());
+    string origin = EncryptHelper::decryptByAES(secretKeyString, decodeBase64AES);
+    if (origin.empty()) {
+        return NULL;
+    }
+
+    //LOGI("origin: %s", origin.c_str());
+    jstring result = env->NewStringUTF(origin.c_str());
+    return result;
+}
+
+JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_encryptByRSA(JNIEnv *env, jobject thiz
+        , jstring publicKey, jstring content) {
+
+    char *publicKeyChars = (char *) env->GetStringUTFChars(publicKey, NULL);
+    string publicKeyString = string(publicKeyChars);
+    env->ReleaseStringUTFChars(publicKey, publicKeyChars);
+
+    char *contentChars = (char *) env->GetStringUTFChars(content, NULL);
+    string contentString = string(contentChars);
+    env->ReleaseStringUTFChars(content, contentChars);
+
+    string rsaResult = EncryptHelper::encryptByRSA(publicKeyString, contentString);
     //LOGI("rsa result: %s", rsaResult.c_str());
     if (rsaResult.empty()) {
         return NULL;
@@ -56,22 +90,28 @@ JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_encryptByRSA(JNI
     if (base64RSA.empty()) {
         return NULL;
     }
-    //string -> char* -> jstring 返回
-    //jstring result = env->NewStringUTF(rsaResult.c_str());
+
     jstring result = env->NewStringUTF(base64RSA.c_str());
     return result;
 }
 
-JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_decryptByRSA(JNIEnv *env, jobject thiz, jstring privateKey, jstring content) {
-    char *base64PrivateKeyChars = (char *) env->GetStringUTFChars(privateKey, NULL);
-    string base64PrivateKeyString = string(base64PrivateKeyChars);
+JNIEXPORT jstring JNICALL Java_com_security_openssl_OpenSslUtil_decryptByRSA(JNIEnv *env, jobject thiz
+        , jstring privateKey, jstring cipherContent) {
 
-    char *contentChars = (char *) env->GetStringUTFChars(content, NULL);
+    char *privateKeyChars = (char *) env->GetStringUTFChars(privateKey, NULL);
+    string privateKeyString = string(privateKeyChars);
+    env->ReleaseStringUTFChars(privateKey, privateKeyChars);
+
+    char *contentChars = (char *) env->GetStringUTFChars(cipherContent, NULL);
     string contentString = string(contentChars);
+    env->ReleaseStringUTFChars(cipherContent, contentChars);
 
     string decodeBase64RSA = EncryptHelper::decodeBase64(contentString);
     //LOGI("decodeBase64RSA: %s", decodeBase64RSA.c_str());
-    string origin = EncryptHelper::decryptByRSA(base64PrivateKeyString, decodeBase64RSA);
+    string origin = EncryptHelper::decryptByRSA(privateKeyString, decodeBase64RSA);
+    if (origin.empty()) {
+        return NULL;
+    }
     //LOGI("origin: %s", origin.c_str());
     jstring result = env->NewStringUTF(origin.c_str());
     return result;

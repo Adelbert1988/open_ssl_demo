@@ -14,12 +14,7 @@
 
 class EncryptHelper{
 public:
-    /**
-     * md5数据加密
-     * @param env
-     * @param content
-     * @return
-     */
+
     static jstring encryptByMD5(JNIEnv *env, jstring content);
 
     static std::string encryptByAES(const std::string &aesSecret, const std::string &content);

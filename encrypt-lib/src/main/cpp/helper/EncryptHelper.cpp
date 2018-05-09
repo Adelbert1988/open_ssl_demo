@@ -2,12 +2,9 @@
 // Created by u51 on 2018/4/25.
 //
 
-#include <stdio.h>
-#include <string.h>
 #include "EncryptHelper.h"
-#include "openssl/pem.h"
-#include "openssl/md5.h"
-#include "JNIHelper.h"
+
+using std::string;
 
 jstring EncryptHelper::encryptByMD5(JNIEnv *env, jstring content)
 {
@@ -27,10 +24,6 @@ jstring EncryptHelper::encryptByMD5(JNIEnv *env, jstring content)
 
 jstring EncryptHelper::encryptByAES(JNIEnv *env, jstring aesSecret, jstring content)
 {
-    /*const char *str = env->GetStringUTFChars(content, 0);
-    LOGI("encryptByAES content：%s", str);
-    env->ReleaseStringUTFChars(content, str);*/
-
     const unsigned char *iv = (const unsigned char *) "0123456789012345";
     jbyteArray contentArray = JNIHelper::jstringTojbyteArray(env, content);
     jbyteArray aesSecretArray = JNIHelper::jstringTojbyteArray(env, aesSecret);
@@ -114,7 +107,7 @@ jbyteArray EncryptHelper::encryptDataByAES(JNIEnv *env, jbyteArray aesSecret, jb
     return cipher;
 }
 
-jstring EncryptHelper::decodeByAES(JNIEnv *env, jstring aesSecret, jstring content)
+jstring EncryptHelper::decryptByAES(JNIEnv *env, jstring aesSecret, jstring content)
 {
     jbyteArray contentArray = JNIHelper::jstringTojbyteArray(env, content);
     jbyteArray aesSecretArray = JNIHelper::jstringTojbyteArray(env, aesSecret);
@@ -156,12 +149,147 @@ jstring EncryptHelper::decodeByAES(JNIEnv *env, jstring aesSecret, jstring conte
     return (jstring)env->NewObject(strClass, methodId, cipher, encoding);
 }
 
-jstring EncryptHelper::encryptByRSA(JNIEnv *env, jstring publicKey, jstring content)
-{
 
+std::string EncryptHelper::encryptByRSA(const std::string &publicKey, const std::string &content) {
+    BIO *bio = NULL;
+    RSA *rsa_public_key = NULL;
+    //从字符串读取RSA公钥串
+    if ((bio = BIO_new_mem_buf((void *) publicKey.c_str(), -1)) == NULL) {
+        LOGI("BIO_new_mem_buf failed!");
+        return "";
+    }
+    //读取公钥
+    rsa_public_key = PEM_read_bio_RSA_PUBKEY(bio, NULL, NULL, NULL);
+    //异常处理
+    if (rsa_public_key == NULL) {
+        //资源释放
+        BIO_free_all(bio);
+        //清除管理CRYPTO_EX_DATA的全局hash表中的数据，避免内存泄漏
+        CRYPTO_cleanup_all_ex_data();
+        return "";
+    }
+    //rsa模的位数
+    int rsa_size = RSA_size(rsa_public_key);
+    //RSA_PKCS1_PADDING 最大加密长度 为 128 -11
+    //RSA_NO_PADDING 最大加密长度为  128
+    //rsa_size = rsa_size - RSA_PKCS1_PADDING_SIZE;
+    //动态分配内存，用于存储加密后的密文
+    unsigned char *to = (unsigned char *) malloc(rsa_size + 1);
+    //填充0
+    memset(to, 0, rsa_size + 1);
+    //明文长度
+    int flen = content.length();
+    //加密，返回值为加密后的密文长度，-1表示失败
+    int status = RSA_public_encrypt(flen
+            , (const unsigned char *) content.c_str()
+            , to
+            , rsa_public_key, RSA_PKCS1_PADDING);
+
+    //异常处理
+    if (status < 0) {
+        //资源释放
+        free(to);
+        BIO_free_all(bio);
+        RSA_free(rsa_public_key);
+        //清除管理CRYPTO_EX_DATA的全局hash表中的数据，避免内存泄漏
+        CRYPTO_cleanup_all_ex_data();
+        return "";
+    }
+    //赋值密文
+    static std::string result((char *) to, status);
+    free(to);
+    BIO_free_all(bio);
+    RSA_free(rsa_public_key);
+    CRYPTO_cleanup_all_ex_data();
+    return result;
 }
 
-jstring EncryptHelper::decodeByRSA(JNIEnv *env, jstring privateKey, jstring content)
-{
 
+std::string EncryptHelper::decryptByRSA(const std::string &privateKey, const std::string &content) {
+    BIO *bio = NULL;
+    RSA *rsa_private_key = NULL;
+    //从字符串读取RSA公钥串
+    if ((bio = BIO_new_mem_buf((void *) privateKey.c_str(), -1)) == NULL) {
+        LOGI("BIO_new_mem_buf failed!");
+        return "";
+    }
+    //读取私钥
+    rsa_private_key = PEM_read_bio_RSAPrivateKey(bio, NULL, NULL, NULL);
+    //异常处理
+    if (rsa_private_key == NULL) {
+        //资源释放
+        BIO_free_all(bio);
+        //清除管理CRYPTO_EX_DATA的全局hash表中的数据，避免内存泄漏
+        CRYPTO_cleanup_all_ex_data();
+        return "";
+    }
+    //rsa模的位数
+    int rsa_size = RSA_size(rsa_private_key);
+    //动态分配内存，用于存储解密后的明文
+    unsigned char *to = (unsigned char *) malloc(rsa_size + 1);
+    //填充0
+    memset(to, 0, rsa_size + 1);
+    //密文长度
+    int flen = content.length();
+    // RSA_NO_PADDING
+    // RSA_PKCS1_PADDING
+    //解密，返回值为解密后的名文长度，-1表示失败
+    int status = RSA_private_decrypt(flen, (const unsigned char *) content.c_str(), to, rsa_private_key,
+                                     RSA_PKCS1_PADDING);
+    //异常处理率
+    if (status < 0) {
+        //释放资源
+        free(to);
+        BIO_free_all(bio);
+        RSA_free(rsa_private_key);
+        //清除管理CRYPTO_EX_DATA的全局hash表中的数据，避免内存泄漏
+        CRYPTO_cleanup_all_ex_data();
+        return "";
+    }
+    //赋值明文，是否需要指定to的长度？
+    static std::string result((char *) to);
+    //释放资源
+    free(to);
+    BIO_free_all(bio);
+    RSA_free(rsa_private_key);
+    //清除管理CRYPTO_EX_DATA的全局hash表中的数据，避免内存泄漏
+    CRYPTO_cleanup_all_ex_data();
+    return result;
 }
+
+std::string EncryptHelper::encodeBase64(const std::string &decoded_bytes) {
+    BIO *bio, *b64;
+    BUF_MEM *bufferPtr;
+    b64 = BIO_new(BIO_f_base64());
+    //不换行
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bio = BIO_new(BIO_s_mem());
+    bio = BIO_push(b64, bio);
+    //encode
+    BIO_write(bio, decoded_bytes.c_str(), (int) decoded_bytes.length());
+    BIO_flush(bio);
+    BIO_get_mem_ptr(bio, &bufferPtr);
+    //这里的第二个参数很重要，必须赋值
+    std::string result(bufferPtr->data, bufferPtr->length);
+    BIO_free_all(bio);
+    return result;
+}
+
+std::string EncryptHelper::decodeBase64(const std::string &encoded_bytes) {
+    BIO *bioMem, *b64;
+    bioMem = BIO_new_mem_buf((void *) encoded_bytes.c_str(), -1);
+    b64 = BIO_new(BIO_f_base64());
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bioMem = BIO_push(b64, bioMem);
+    //获得解码长度
+    size_t buffer_length = BIO_get_mem_data(bioMem, NULL);
+    char *decode = (char *) malloc(buffer_length + 1);
+    //填充0
+    memset(decode, 0, buffer_length + 1);
+    BIO_read(bioMem, (void *) decode, (int) buffer_length);
+    static std::string decoded_bytes(decode);
+    BIO_free_all(bioMem);
+    return decoded_bytes;
+}
+
+

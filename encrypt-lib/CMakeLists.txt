@@ -24,7 +24,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/open-ssl-core/include)
 add_library(crypto SHARED IMPORTED )
 add_library(ssl SHARED IMPORTED )
 
-#引入第三方.so库
 set_target_properties(crypto
                       PROPERTIES
                       IMPORTED_LOCATION
@@ -37,7 +36,7 @@ set_target_properties(ssl
 
 
 add_library( # Specifies the name of the library.
-             android-encrypt
+             defender
 
              # Sets the library as a shared library.
              SHARED
@@ -47,7 +46,7 @@ add_library( # Specifies the name of the library.
              src/main/cpp/helper/JNIHelper.cpp
              src/main/cpp/helper/EncryptHelper.cpp)
 
-set_target_properties(android-encrypt
+set_target_properties(defender
                       PROPERTIES
                       #拷贝生成的动态库到指定目录
                       LIBRARY_OUTPUT_DIRECTORY
@@ -61,10 +60,9 @@ find_library( # Sets the name of the path variable.
               log )
 
 target_link_libraries( # Specifies the target library. 连接ssl,crypto
-                      android-encrypt
+                      defender
                       crypto
                       ssl
-
                      # Links the target library to the log library
                      # included in the NDK.
                      ${log-lib} )

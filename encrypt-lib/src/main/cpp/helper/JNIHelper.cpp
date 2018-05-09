@@ -52,7 +52,7 @@ jobject JNIHelper:: getApplication(JNIEnv *env) {
     return application;
 }
 
-
+//so鉴权
 int JNIHelper::verifySign(JNIEnv *env) {
     // Application object
     jobject application = JNIHelper::getApplication(env);
@@ -111,13 +111,13 @@ int JNIHelper::verifySign(JNIEnv *env) {
         return JNI_ERR;
     }
 
-    LOGI("应用中读取到的签名为：%s", sign);
-    LOGI("native中预置的签名为：%s", APP_KEYSTORE_SIGN);
+    //LOGI("应用中读取到的签名为：%s", sign);
+    //LOGI("native中预置的签名为：%s", APP_KEYSTORE_SIGN);
     int result = strcmp(sign, APP_KEYSTORE_SIGN);
-    // 使用之后要释放这段内存
+
     env->ReleaseStringUTFChars(signature_md5, sign);
     env->DeleteLocalRef(signature_md5);
-    if (result == 0) { // 签名一致
+    if (result == 0) {//签名一致
         return JNI_OK;
     }
 

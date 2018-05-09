@@ -7,15 +7,16 @@ package com.security.openssl;
 public class OpenSslUtil {
 
     static {
-        System.loadLibrary("android-encrypt");
+        System.loadLibrary("defender");
     }
 
     public static native String getMD5Content(String message);
 
-    public static native String encryptAESContent(String secret, String content);
+    public static native String encryptByAES(String secret, String content);
 
-    public static native byte[] encryptDataAES(byte[] secret, byte[] content);
+    public static native String decryptByAES(String secret, String content);
 
-    public static native String decodeAESContent(String secret, String content);
+    public static native String encryptByRSA(String publicKey, String content);
 
+    public static native String decryptByRSA(String privateKey, String content);
 }

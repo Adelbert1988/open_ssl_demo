@@ -27,7 +27,7 @@ android {
 
             externalNativeBuild {
                 cmake {
-                    arguments "-DRELEASE_MODE=1"
+                    arguments "-DRELEASE_MODE=1"//, "-DANDROID_ABI=armeabi-v7a" 设置生成so的架构
                 }
             }
         }
